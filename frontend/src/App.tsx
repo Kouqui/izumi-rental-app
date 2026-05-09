@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import Calendar from './Calendar';
 
 interface PropertyData {
   id: string;
@@ -8,17 +9,30 @@ interface PropertyData {
   basePrice: number;
   maxGuests: number;
   amenities: string[];
+  totalBedrooms: number;
+  totalBathrooms: number;
+  squareFeet: number;
+  images: string[];
+  rating: number;
+  reviews: number;
 }
 
 export default function App() {
   const [propertyData, setPropertyData] = useState<PropertyData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [checkIn, setCheckIn] = useState('');
+  const [checkOut, setCheckOut] = useState('');
+  const [availability, setAvailability] = useState<{ [key: string]: boolean }>({});
+  const [bookingMessage, setBookingMessage] = useState('');
+  const [bookingError, setBookingError] = useState('');
+  const [totalPrice, setTotalPrice] = useState(0);
 
   useEffect(() => {
     fetch('/api/property')
       .then((res) => res.json())
       .then((data) => {
         setPropertyData(data);
+        setAvailability(data.availability || {});
         setLoading(false);
       })
       .catch((err) => {
@@ -27,6 +41,125 @@ export default function App() {
       });
   }, []);
 
+  // Calcular preço total baseado nas diárias
+  useEffect(() => {
+    if (checkIn && checkOut && propertyData) {
+      const start = new Date(checkIn);
+      const end = new Date(checkOut);
+      
+      // Zera as horas para evitar problemas de fuso horário no cálculo
+      start.setHours(0, 0, 0, 0);
+      end.setHours(0, 0, 0, 0);
+
+      const daysDifference = Math.floor((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+
+      // Se a data final for maior ou igual a inicial, calcula as diárias (+1 para incluir o primeiro e último dia)
+      if (daysDifference >= 0) {
+        const totalDiarias = daysDifference + 1;
+        setTotalPrice(totalDiarias * propertyData.basePrice);
+      } else {
+        setTotalPrice(0);
+      }
+    } else {
+      setTotalPrice(0);
+    }
+  }, [checkIn, checkOut, propertyData]);
+
+  const formatDatePT = (dateStr: string) => {
+    const [year, month, day] = dateStr.split('-').map(Number);
+    const months = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+    return `${day} de ${months[month - 1]}, ${year}`;
+  };
+
+  const handleClearDates = () => {
+    setCheckIn('');
+    setCheckOut('');
+    setBookingMessage('');
+    setBookingError('');
+  };
+
+  const handleDateSelect = (dateStr: string) => {
+    setBookingMessage('');
+    setBookingError('');
+
+    if (!checkIn || (checkIn && checkOut)) {
+      setCheckIn(dateStr);
+      setCheckOut('');
+      return;
+    }
+
+    if (dateStr <= checkIn) {
+      setCheckIn(dateStr);
+      setCheckOut('');
+      return;
+    }
+
+    // Valida se o período contém datas indisponíveis
+    let current = new Date(checkIn + 'T00:00:00');
+    const end = new Date(dateStr + 'T00:00:00');
+    while (current <= end) {
+      const ds = current.toISOString().split('T')[0];
+      if (availability[ds] === false) {
+        setBookingError('Este período contém datas indisponíveis. Escolha outro intervalo.');
+        return;
+      }
+      current.setDate(current.getDate() + 1);
+    }
+
+    setCheckOut(dateStr);
+  };
+
+  const handleCheckAvailability = async () => {
+    setBookingMessage('');
+    setBookingError('');
+
+    if (!checkIn || !checkOut) {
+      setBookingError('Por favor, selecione as datas de entrada e saída');
+      return;
+    }
+
+    const start = new Date(checkIn);
+    const end = new Date(checkOut);
+    
+    start.setHours(0, 0, 0, 0);
+    end.setHours(0, 0, 0, 0);
+
+    // Agora permite que start seja igual ao end (Day Use = 1 diária)
+    if (start > end) {
+      setBookingError('A data de saída não pode ser anterior à data de entrada');
+      return;
+    }
+
+    // Verificar disponibilidade para cada data (incluindo o dia de saída)
+    let currentDate = new Date(start);
+    let allAvailable = true;
+
+    // <= para verificar se o último dia também está livre
+    while (currentDate <= end) {
+      const dateStr = currentDate.toISOString().split('T')[0];
+      const isAvailable = availability[dateStr] !== false;
+
+      if (!isAvailable) {
+        allAvailable = false;
+        break;
+      }
+      currentDate.setDate(currentDate.getDate() + 1);
+    }
+
+    if (allAvailable) {
+      const daysDifference = Math.floor((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+      const totalDiarias = daysDifference + 1;
+      
+      const textoDiaria = totalDiarias === 1 ? 'diária' : 'diárias';
+      
+      setBookingMessage(
+        `✅ Disponível! Total: R$ ${(totalDiarias * (propertyData?.basePrice || 0)).toLocaleString('pt-BR')} por ${totalDiarias} ${textoDiaria}`
+      );
+    } else {
+      setBookingError('❌ Infelizmente, algumas datas não estão disponíveis. Tente outras datas.');
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-izumi-cream via-white to-izumi-cream">
       {/* Navigation */}
@@ -34,22 +167,22 @@ export default function App() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center">
-              <h1 className="text-2xl font-bold text-izumi-pink">Chácara Izumi</h1>
+              <img src="/logo.jpg" alt="Chácara Izumi" className="h-12 w-auto" />
             </div>
             <div className="hidden md:flex space-x-8">
               <a href="#home" className="text-izumi-dark hover:text-izumi-pink transition-colors font-medium">
-                Home
+                Início
               </a>
               <a href="#about" className="text-izumi-dark hover:text-izumi-pink transition-colors font-medium">
-                About
+                Sobre
               </a>
               <a href="#contact" className="text-izumi-dark hover:text-izumi-pink transition-colors font-medium">
-                Contact
+                Contato
               </a>
             </div>
-            <button className="bg-izumi-pink text-white px-6 py-2 rounded-lg hover:bg-opacity-90 transition-all font-semibold shadow-md hover:shadow-lg">
-              Book Now
-            </button>
+            <a href="#booking" className="bg-izumi-pink text-white px-6 py-2 rounded-lg hover:bg-opacity-90 transition-all font-semibold shadow-md hover:shadow-lg">
+              Reservar Agora
+            </a>
           </div>
         </div>
       </nav>
@@ -61,41 +194,77 @@ export default function App() {
             <div className="space-y-8">
               <div>
                 <h2 className="text-5xl md:text-6xl font-bold text-izumi-dark mb-4 leading-tight">
-                  Welcome to <span className="text-izumi-pink">Chácara Izumi</span>
+                  Bem-vindo à <span className="text-izumi-pink">Chácara Izumi</span>
                 </h2>
                 <p className="text-xl text-gray-600 leading-relaxed">
-                  Experience the perfect blend of luxury and nature. Discover your ideal getaway at our premium vacation rental property.
+                  Experimente a combinação perfeita de luxo e natureza. Descubra seu escape ideal em nossa propriedade de aluguel de férias premium.
                 </p>
               </div>
               <div className="flex flex-col sm:flex-row gap-4">
-                <button className="bg-izumi-pink text-white px-8 py-3 rounded-lg hover:bg-opacity-90 transition-all font-semibold shadow-lg hover:shadow-xl text-lg">
-                  Explore Now
-                </button>
-                <button className="bg-white text-izumi-pink border-2 border-izumi-pink px-8 py-3 rounded-lg hover:bg-izumi-cream transition-all font-semibold shadow-md">
-                  Learn More
-                </button>
+                <a href="#gallery" className="bg-izumi-pink text-white px-8 py-3 rounded-lg hover:bg-opacity-90 transition-all font-semibold shadow-lg hover:shadow-xl text-lg text-center">
+                  Explorar Agora
+                </a>
+                <a href="#booking" className="bg-white text-izumi-pink border-2 border-izumi-pink px-8 py-3 rounded-lg hover:bg-izumi-cream transition-all font-semibold shadow-md text-center">
+                  Saiba Mais
+                </a>
               </div>
               <div className="flex gap-8 pt-4">
                 <div>
                   <p className="text-3xl font-bold text-izumi-pink">5★</p>
-                  <p className="text-sm text-gray-600">Guest Rating</p>
+                  <p className="text-sm text-gray-600">Avaliação de Hóspedes</p>
                 </div>
                 <div>
                   <p className="text-3xl font-bold text-izumi-pink">500+</p>
-                  <p className="text-sm text-gray-600">Happy Guests</p>
+                  <p className="text-sm text-gray-600">Hóspedes Satisfeitos</p>
                 </div>
               </div>
             </div>
-            <div className="relative h-96 md:h-full min-h-96">
-              <div className="absolute inset-0 bg-gradient-to-br from-izumi-pink to-izumi-dark rounded-3xl opacity-10"></div>
-              <div className="absolute inset-4 bg-white rounded-2xl shadow-2xl flex items-center justify-center">
-                <div className="text-center">
-                  <div className="w-20 h-20 bg-izumi-pink bg-opacity-20 rounded-full mx-auto mb-4"></div>
-                  <p className="text-gray-400">Featured Image</p>
-                </div>
-              </div>
+            <div className="relative h-96 md:h-full min-h-96 rounded-3xl overflow-hidden shadow-2xl">
+              <img src="/pool.jpeg" alt="Piscina da Chácara Izumi" className="w-full h-full object-cover" />
+              <div className="absolute inset-0 bg-gradient-to-t from-izumi-dark/30 to-transparent"></div>
             </div>
           </div>
+        </div>
+      </section>
+
+      {/* Gallery Section */}
+      <section id="gallery" className="py-20 md:py-28 bg-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-16">
+            <h3 className="text-4xl md:text-5xl font-bold text-izumi-dark mb-4">Galeria</h3>
+            <p className="text-xl text-gray-600">Conheça a beleza e o luxo da Chácara Izumi</p>
+          </div>
+
+          {loading ? (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="h-64 bg-gray-200 rounded-2xl animate-pulse"></div>
+              ))}
+            </div>
+          ) : propertyData && propertyData.images && propertyData.images.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {propertyData.images.map((image, index) => (
+                <div
+                  key={index}
+                  className="group relative h-64 md:h-72 rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-300 cursor-pointer"
+                >
+                  <img
+                    src={image}
+                    alt={`Galeria ${index + 1}`}
+                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                    onError={(e) => {
+                      (e.currentTarget as HTMLImageElement).src = '/pool.jpeg';
+                    }}
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-12">
+              <p className="text-gray-500">Galeria indisponível no momento</p>
+            </div>
+          )}
         </div>
       </section>
 
@@ -103,8 +272,8 @@ export default function App() {
       <section id="booking" className="bg-white py-20 md:py-28">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
-            <h3 className="text-4xl md:text-5xl font-bold text-izumi-dark mb-4">Start Your Escape</h3>
-            <p className="text-xl text-gray-600">Find your perfect dates and complete your booking</p>
+            <h3 className="text-4xl md:text-5xl font-bold text-izumi-dark mb-4">Comece Sua Fuga</h3>
+            <p className="text-xl text-gray-600">Encontre suas datas perfeitas e complete sua reserva</p>
           </div>
 
           {/* Booking Widget Placeholder Card */}
@@ -125,17 +294,17 @@ export default function App() {
 
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 py-6 border-y border-gray-300">
                   <div>
-                    <p className="text-sm text-gray-600 mb-1">Max Guests</p>
+                    <p className="text-sm text-gray-600 mb-1">Máximo de Hóspedes</p>
                     <p className="text-2xl font-bold text-izumi-pink">{propertyData.maxGuests}</p>
                   </div>
                   <div>
-                    <p className="text-sm text-gray-600 mb-1">Price / Night</p>
-                    <p className="text-2xl font-bold text-izumi-pink">${propertyData.basePrice}</p>
+                    <p className="text-sm text-gray-600 mb-1">Preço Diária</p>
+                    <p className="text-2xl font-bold text-izumi-pink">R$ {propertyData.basePrice}</p>
                   </div>
                   <div className="col-span-2">
-                    <p className="text-sm text-gray-600 mb-2">Amenities</p>
+                    <p className="text-sm text-gray-600 mb-2">Amenidades</p>
                     <div className="flex flex-wrap gap-2">
-                      {propertyData.amenities.slice(0, 3).map((amenity) => (
+                      {propertyData.amenities.slice(0, 5).map((amenity) => (
                         <span key={amenity} className="bg-izumi-pink bg-opacity-10 text-izumi-pink px-3 py-1 rounded-full text-sm">
                           {amenity}
                         </span>
@@ -144,25 +313,87 @@ export default function App() {
                   </div>
                 </div>
 
-                <div className="space-y-3">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-semibold text-izumi-dark mb-2">Check-in</label>
-                      <input type="date" className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-izumi-pink focus:outline-none" />
+                <div className="space-y-4">
+                  {/* Datas selecionadas */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className={`p-3 rounded-lg border-2 transition-colors ${checkIn ? 'border-izumi-pink bg-izumi-pink/5' : 'border-gray-200 bg-gray-50'}`}>
+                      <p className="text-xs font-semibold text-gray-500 mb-1">Entrada</p>
+                      <p className={`text-sm font-bold ${checkIn ? 'text-izumi-dark' : 'text-gray-400'}`}>
+                        {checkIn ? formatDatePT(checkIn) : 'Selecione'}
+                      </p>
                     </div>
-                    <div>
-                      <label className="block text-sm font-semibold text-izumi-dark mb-2">Check-out</label>
-                      <input type="date" className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-izumi-pink focus:outline-none" />
+                    <div className={`p-3 rounded-lg border-2 transition-colors ${checkOut ? 'border-izumi-pink bg-izumi-pink/5' : 'border-gray-200 bg-gray-50'}`}>
+                      <p className="text-xs font-semibold text-gray-500 mb-1">Saída</p>
+                      <p className={`text-sm font-bold ${checkOut ? 'text-izumi-dark' : 'text-gray-400'}`}>
+                        {checkOut ? formatDatePT(checkOut) : 'Selecione'}
+                      </p>
                     </div>
                   </div>
-                  <button className="w-full bg-izumi-pink text-white py-4 rounded-lg hover:bg-opacity-90 transition-all font-bold text-lg shadow-lg hover:shadow-xl">
-                    Check Availability
+
+                  {/* Calendário */}
+                  <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
+                    <Calendar
+                      availability={availability}
+                      checkIn={checkIn}
+                      checkOut={checkOut}
+                      onDateSelect={handleDateSelect}
+                    />
+                  </div>
+
+                  {!checkIn && (
+                    <p className="text-sm text-gray-400 text-center">
+                      Clique em uma data para selecionar a entrada, depois escolha a saída
+                    </p>
+                  )}
+
+                  {checkIn && checkOut && totalPrice > 0 && (
+                    <div className="bg-izumi-cream p-4 rounded-lg flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-gray-600">Preço estimado:</p>
+                        <p className="text-2xl font-bold text-izumi-pink">R$ {totalPrice.toLocaleString('pt-BR')}</p>
+                      </div>
+                      <button
+                        onClick={handleClearDates}
+                        className="text-sm text-gray-400 hover:text-red-500 transition-colors underline"
+                      >
+                        Limpar
+                      </button>
+                    </div>
+                  )}
+
+                  {(checkIn || checkOut) && !(checkIn && checkOut) && (
+                    <button
+                      onClick={handleClearDates}
+                      className="text-sm text-gray-400 hover:text-red-500 transition-colors w-full text-center underline"
+                    >
+                      Limpar seleção
+                    </button>
+                  )}
+
+                  <button
+                    onClick={handleCheckAvailability}
+                    disabled={!checkIn || !checkOut}
+                    className="w-full bg-izumi-pink text-white py-4 rounded-lg hover:bg-opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-all font-bold text-lg shadow-lg hover:shadow-xl"
+                  >
+                    Verificar Disponibilidade
                   </button>
+
+                  {bookingMessage && (
+                    <div className="bg-green-50 border-l-4 border-green-500 p-4 rounded">
+                      <p className="text-green-700 font-semibold">{bookingMessage}</p>
+                    </div>
+                  )}
+
+                  {bookingError && (
+                    <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded">
+                      <p className="text-red-700 font-semibold">{bookingError}</p>
+                    </div>
+                  )}
                 </div>
               </div>
             ) : (
               <div className="text-center py-8">
-                <p className="text-gray-500">Unable to load property data</p>
+                <p className="text-gray-500">Impossível carregar dados da propriedade</p>
               </div>
             )}
           </div>
@@ -175,36 +406,36 @@ export default function App() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
             <div>
               <h4 className="text-xl font-bold mb-4 text-izumi-pink">Chácara Izumi</h4>
-              <p className="text-gray-300">Premium vacation rental experience</p>
+              <p className="text-gray-300">Experiência de aluguel de férias premium</p>
             </div>
             <div>
-              <h5 className="font-semibold mb-4">Quick Links</h5>
+              <h5 className="font-semibold mb-4">Links Rápidos</h5>
               <ul className="space-y-2 text-gray-300">
                 <li>
                   <a href="#" className="hover:text-izumi-pink transition-colors">
-                    About
+                    Sobre
                   </a>
                 </li>
                 <li>
                   <a href="#" className="hover:text-izumi-pink transition-colors">
-                    Gallery
+                    Galeria
                   </a>
                 </li>
                 <li>
                   <a href="#" className="hover:text-izumi-pink transition-colors">
-                    Contact
+                    Contato
                   </a>
                 </li>
               </ul>
             </div>
             <div>
-              <h5 className="font-semibold mb-4">Contact</h5>
+              <h5 className="font-semibold mb-4">Contato</h5>
               <p className="text-gray-300 mb-2">Email: info@chacaraizumi.com</p>
-              <p className="text-gray-300">Phone: +55 (11) 1234-5678</p>
+              <p className="text-gray-300">Telefone: +55 (19) 97125-0308</p>
             </div>
           </div>
           <div className="border-t border-gray-700 pt-8 text-center text-gray-400">
-            <p>&copy; 2024 Chácara Izumi. All rights reserved.</p>
+            <p>&copy; {new Date().getFullYear()} Chácara Izumi. Todos os direitos reservados.</p>
           </div>
         </div>
       </footer>

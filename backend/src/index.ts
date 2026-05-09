@@ -1,4 +1,4 @@
-import express, { Express, Request, Response } from 'express';
+import express, { Express, Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 
 const app: Express = express();
@@ -30,26 +30,34 @@ interface Property {
 
 const propertyData: Property = {
   id: 'izumi-001',
-  name: 'Chácara Izumi - Main Lodge',
-  location: 'São Paulo, Brazil',
+  name: 'Chácara Izumi',
+  location: 'Campinas - SP, Brasil',
   description:
-    'A stunning premium vacation rental nestled in the heart of Brazilian countryside. Experience luxury, comfort, and natural beauty in perfect harmony.',
-  basePrice: 350,
-  maxGuests: 12,
-  amenities: ['WiFi', 'Pool', 'Hot Tub', 'Sauna', 'Gym', 'Game Room', 'Chef Kitchen', 'Home Theater'],
-  totalBedrooms: 6,
-  totalBathrooms: 4,
+    'Localizada em Campinas, SP, a Chácara Izumi é um espaço exclusivo para eventos e lazer, com piscina, área verde e estrutura completa para receber até 80 convidados com conforto e sofisticação.',
+  basePrice: 800,
+  maxGuests: 80,
+  amenities: ['WiFi', 'Piscina', '10 Jogos de Mesa', 'Gás', 'Taxa de Limpeza'],
+  totalBedrooms: 5,
+  totalBathrooms: 3,
   squareFeet: 8500,
-  images: ['/images/main.jpg', '/images/pool.jpg', '/images/bedroom.jpg'],
+  images: ['/logo.jpg', '/pool.jpeg'],
   rating: 4.9,
   reviews: 247,
   availability: {
-    '2024-12-20': true,
-    '2024-12-21': true,
-    '2024-12-22': false,
-    '2024-12-23': false,
-    '2024-12-24': true,
-    '2024-12-25': true,
+    '2026-05-16': true,
+    '2026-05-17': true,
+    '2026-05-23': false,
+    '2026-05-24': false,
+    '2026-05-30': true,
+    '2026-05-31': true,
+    '2026-06-06': true,
+    '2026-06-07': true,
+    '2026-06-13': false,
+    '2026-06-14': false,
+    '2026-06-20': true,
+    '2026-06-21': true,
+    '2026-06-27': true,
+    '2026-06-28': true,
   },
 };
 
@@ -106,7 +114,7 @@ app.use((req: Request, res: Response) => {
 });
 
 // Error handling middleware
-app.use((err: Error, req: Request, res: Response) => {
+app.use((err: Error, req: Request, res: Response, _next: NextFunction) => {
   console.error(err.stack);
   res.status(500).json({ error: 'Internal server error' });
 });
