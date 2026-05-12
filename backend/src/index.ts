@@ -9,12 +9,20 @@ app.use(cors());
 app.use(express.json());
 
 // Mock property data
+interface Pricing {
+  weekday: number;
+  weekendDay: number;
+  fullWeekend: number;
+  holiday: number;
+}
+
 interface Property {
   id: string;
   name: string;
   location: string;
   description: string;
   basePrice: number;
+  pricing: Pricing;
   maxGuests: number;
   amenities: string[];
   totalBedrooms: number;
@@ -23,6 +31,7 @@ interface Property {
   images: string[];
   rating: number;
   reviews: number;
+  holidays: string[];
   availability: {
     [key: string]: boolean;
   };
@@ -35,6 +44,12 @@ const propertyData: Property = {
   description:
     'Localizada em Campinas, SP, a Chácara Izumi é um espaço exclusivo para eventos e lazer, com piscina, área verde e estrutura completa para receber até 80 convidados com conforto e sofisticação.',
   basePrice: 800,
+  pricing: {
+    weekday: 800,
+    weekendDay: 1150,
+    fullWeekend: 2000,
+    holiday: 1150,
+  },
   maxGuests: 80,
   amenities: ['WiFi', 'Piscina', '10 Jogos de Mesa', 'Gás', 'Taxa de Limpeza'],
   totalBedrooms: 5,
@@ -55,6 +70,30 @@ const propertyData: Property = {
   ],
   rating: 4.9,
   reviews: 247,
+  holidays: [
+    // 2026
+    '2026-01-01', // Ano Novo
+    '2026-04-03', // Sexta-feira Santa
+    '2026-04-21', // Tiradentes
+    '2026-05-01', // Dia do Trabalho
+    '2026-06-04', // Corpus Christi
+    '2026-09-07', // Independência
+    '2026-10-12', // Nossa Senhora Aparecida
+    '2026-11-02', // Finados
+    '2026-11-15', // Proclamação da República
+    '2026-12-25', // Natal
+    // 2027
+    '2027-01-01', // Ano Novo
+    '2027-03-26', // Sexta-feira Santa
+    '2027-04-21', // Tiradentes
+    '2027-05-01', // Dia do Trabalho
+    '2027-06-17', // Corpus Christi
+    '2027-09-07', // Independência
+    '2027-10-12', // Nossa Senhora Aparecida
+    '2027-11-02', // Finados
+    '2027-11-15', // Proclamação da República
+    '2027-12-25', // Natal
+  ],
   availability: {
     '2026-05-16': true,
     '2026-05-17': true,

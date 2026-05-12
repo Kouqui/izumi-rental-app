@@ -2,12 +2,21 @@ import { useState, useEffect } from 'react';
 import Calendar from './Calendar';
 import Carousel from './Carousel';
 
+interface Pricing {
+  weekday: number;
+  weekendDay: number;
+  fullWeekend: number;
+  holiday: number;
+}
+
 interface PropertyData {
   id: string;
   name: string;
   location: string;
   description: string;
   basePrice: number;
+  pricing: Pricing;
+  holidays: string[];
   maxGuests: number;
   amenities: string[];
   totalBedrooms: number;
@@ -16,6 +25,38 @@ interface PropertyData {
   images: string[];
   rating: number;
   reviews: number;
+}
+
+function calcPrice(checkIn: string, checkOut: string, pricing: Pricing, holidays: string[]): number {
+  const holidaySet = new Set(holidays);
+  const days: Date[] = [];
+  const cur = new Date(checkIn + 'T00:00:00');
+  const end = new Date(checkOut + 'T00:00:00');
+  while (cur <= end) {
+    days.push(new Date(cur));
+    cur.setDate(cur.getDate() + 1);
+  }
+
+  let total = 0;
+  let i = 0;
+  while (i < days.length) {
+    const dow = days[i].getDay();
+    const ds = days[i].toISOString().split('T')[0];
+    if (dow === 6 && i + 1 < days.length && days[i + 1].getDay() === 0) {
+      total += pricing.fullWeekend;
+      i += 2;
+    } else if (dow === 6 || dow === 0) {
+      total += pricing.weekendDay;
+      i++;
+    } else if (holidaySet.has(ds)) {
+      total += pricing.holiday;
+      i++;
+    } else {
+      total += pricing.weekday;
+      i++;
+    }
+  }
+  return total;
 }
 
 export default function App() {
@@ -42,25 +83,9 @@ export default function App() {
       });
   }, []);
 
-  // Calcular preço total baseado nas diárias
   useEffect(() => {
     if (checkIn && checkOut && propertyData) {
-      const start = new Date(checkIn);
-      const end = new Date(checkOut);
-      
-      // Zera as horas para evitar problemas de fuso horário no cálculo
-      start.setHours(0, 0, 0, 0);
-      end.setHours(0, 0, 0, 0);
-
-      const daysDifference = Math.floor((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
-
-      // Se a data final for maior ou igual a inicial, calcula as diárias (+1 para incluir o primeiro e último dia)
-      if (daysDifference >= 0) {
-        const totalDiarias = daysDifference + 1;
-        setTotalPrice(totalDiarias * propertyData.basePrice);
-      } else {
-        setTotalPrice(0);
-      }
+      setTotalPrice(calcPrice(checkIn, checkOut, propertyData.pricing, propertyData.holidays));
     } else {
       setTotalPrice(0);
     }
@@ -83,19 +108,26 @@ export default function App() {
     setBookingMessage('');
     setBookingError('');
 
-    if (!checkIn || (checkIn && checkOut)) {
+    // Nenhuma data selecionada → define entrada
+    if (!checkIn) {
+      setCheckIn(dateStr);
+      return;
+    }
+
+    // Ambas selecionadas → reinicia com nova entrada
+    if (checkOut) {
       setCheckIn(dateStr);
       setCheckOut('');
       return;
     }
 
-    if (dateStr <= checkIn) {
+    // Clicou antes da entrada → nova entrada
+    if (dateStr < checkIn) {
       setCheckIn(dateStr);
-      setCheckOut('');
       return;
     }
 
-    // Valida se o período contém datas indisponíveis
+    // Mesma data ou depois → valida e define saída (permite dia único)
     let current = new Date(checkIn + 'T00:00:00');
     const end = new Date(dateStr + 'T00:00:00');
     while (current <= end) {
@@ -153,8 +185,9 @@ export default function App() {
       
       const textoDiaria = totalDiarias === 1 ? 'diária' : 'diárias';
       
+      const total = calcPrice(checkIn, checkOut, propertyData!.pricing, propertyData!.holidays);
       setBookingMessage(
-        `✅ Disponível! Total: R$ ${(totalDiarias * (propertyData?.basePrice || 0)).toLocaleString('pt-BR')} por ${totalDiarias} ${textoDiaria}`
+        `✅ Disponível! ${totalDiarias} ${textoDiaria} — Total: R$ ${total.toLocaleString('pt-BR')}`
       );
     } else {
       setBookingError('❌ Infelizmente, algumas datas não estão disponíveis. Tente outras datas.');
@@ -175,9 +208,6 @@ export default function App() {
               <a href="#gallery" className="text-izumi-dark hover:text-izumi-pink transition-colors font-medium">
                 Galeria
               </a>
-              <a href="#booking" className="text-izumi-dark hover:text-izumi-pink transition-colors font-medium">
-                Sobre
-              </a>
               <a href="#contact" className="text-izumi-dark hover:text-izumi-pink transition-colors font-medium">
                 Contato
               </a>
@@ -191,22 +221,56 @@ export default function App() {
 
       {/* Hero Section */}
       <section id="home" className="relative overflow-hidden">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24 md:py-32">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 md:py-24">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
-            <div className="space-y-6">
-              <div>
-                <h2 className="text-5xl md:text-6xl font-bold text-izumi-dark mb-4 leading-tight">
-                  Bem-vindo à <span className="text-izumi-pink">Chácara Izumi</span>
-                </h2>
-                <p className="text-xl text-gray-600 leading-relaxed">
-                  Experimente a combinação perfeita de luxo e natureza. Descubra seu escape ideal em nossa propriedade de aluguel de férias premium.
+
+            {/* Coluna esquerda */}
+            <div className="space-y-8">
+              <span className="inline-flex items-center gap-1.5 bg-izumi-pink/10 text-izumi-pink px-4 py-1.5 rounded-full text-sm font-semibold">
+                📍 Campinas, SP
+              </span>
+
+              <div className="space-y-4">
+                <h1 className="text-5xl md:text-6xl font-bold text-izumi-dark leading-tight">
+                  Chácara<br />
+                  <span className="text-izumi-pink">Izumi</span>
+                </h1>
+                <p className="text-lg text-gray-600 leading-relaxed">
+                  Espaço exclusivo para eventos e lazer, com piscina, área verde e estrutura completa para receber seus convidados com conforto e sofisticação.
                 </p>
               </div>
+
+
+              {/* Amenidades */}
+              {propertyData && (
+                <div className="flex flex-wrap gap-2">
+                  {propertyData.amenities.map((amenity) => (
+                    <span key={amenity} className="bg-white border border-gray-200 text-gray-600 px-3 py-1 rounded-full text-sm shadow-sm">
+                      {amenity}
+                    </span>
+                  ))}
+                </div>
+              )}
+
+              <a
+                href="#booking"
+                className="inline-block bg-izumi-pink text-white px-8 py-3.5 rounded-xl hover:bg-opacity-90 transition-all font-semibold shadow-lg hover:shadow-xl"
+              >
+                Verificar Disponibilidade
+              </a>
             </div>
-            <div className="relative h-96 md:h-full min-h-96 rounded-3xl overflow-hidden shadow-2xl">
-              <img src="/gallery/piscina-palmeiras.jpeg" alt="Piscina da Chácara Izumi" className="w-full h-full object-cover" />
-              <div className="absolute inset-0 bg-gradient-to-t from-izumi-dark/30 to-transparent"></div>
+
+            {/* Coluna direita — imagem */}
+            <div className="relative rounded-3xl overflow-hidden shadow-2xl h-[420px] md:h-[560px]">
+              <img
+                src="/gallery/piscina-palmeiras.jpeg"
+                alt="Piscina da Chácara Izumi"
+                className="w-full h-full object-cover"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
+
             </div>
+
           </div>
         </div>
       </section>
@@ -255,16 +319,22 @@ export default function App() {
                   <p className="text-gray-700 text-lg mb-4">{propertyData.description}</p>
                 </div>
 
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 py-6 border-y border-gray-300">
-                  <div>
-                    <p className="text-sm text-gray-600 mb-1">Máximo de Hóspedes</p>
-                    <p className="text-2xl font-bold text-izumi-pink">{propertyData.maxGuests}</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 py-6 border-y border-gray-300">
+                  <div className="flex gap-8">
+                    <div>
+                      <p className="text-2xl font-bold text-izumi-pink">{propertyData.maxGuests}</p>
+                      <p className="text-sm text-gray-500">Convidados</p>
+                    </div>
+                    <div>
+                      <p className="text-2xl font-bold text-izumi-pink">{propertyData.totalBedrooms}</p>
+                      <p className="text-sm text-gray-500">Colchões</p>
+                    </div>
+                    <div>
+                      <p className="text-2xl font-bold text-izumi-pink">{propertyData.totalBathrooms}</p>
+                      <p className="text-sm text-gray-500">Banheiros</p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-sm text-gray-600 mb-1">Preço Diária</p>
-                    <p className="text-2xl font-bold text-izumi-pink">R$ {propertyData.basePrice}</p>
-                  </div>
-                  <div className="col-span-2">
+                  <div className="sm:col-span-2">
                     <p className="text-sm text-gray-600 mb-2">Amenidades</p>
                     <div className="flex flex-wrap gap-2">
                       {propertyData.amenities.slice(0, 5).map((amenity) => (
@@ -297,6 +367,7 @@ export default function App() {
                   <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
                     <Calendar
                       availability={availability}
+                      holidays={propertyData.holidays}
                       checkIn={checkIn}
                       checkOut={checkOut}
                       onDateSelect={handleDateSelect}
@@ -305,26 +376,18 @@ export default function App() {
 
                   {!checkIn && (
                     <p className="text-sm text-gray-400 text-center">
-                      Clique em uma data para selecionar a entrada, depois escolha a saída
+                      Clique em uma data para selecionar a entrada, depois escolha a saída — ou clique na mesma data para dia único
                     </p>
                   )}
 
                   {checkIn && checkOut && totalPrice > 0 && (
-                    <div className="bg-izumi-cream p-4 rounded-lg flex items-center justify-between">
-                      <div>
-                        <p className="text-sm text-gray-600">Preço estimado:</p>
-                        <p className="text-2xl font-bold text-izumi-pink">R$ {totalPrice.toLocaleString('pt-BR')}</p>
-                      </div>
-                      <button
-                        onClick={handleClearDates}
-                        className="text-sm text-gray-400 hover:text-red-500 transition-colors underline"
-                      >
-                        Limpar
-                      </button>
+                    <div className="bg-izumi-cream p-4 rounded-lg">
+                      <p className="text-sm text-gray-600">Preço estimado:</p>
+                      <p className="text-2xl font-bold text-izumi-pink">R$ {totalPrice.toLocaleString('pt-BR')}</p>
                     </div>
                   )}
 
-                  {(checkIn || checkOut) && !(checkIn && checkOut) && (
+                  {(checkIn || checkOut) && (
                     <button
                       onClick={handleClearDates}
                       className="text-sm text-gray-400 hover:text-red-500 transition-colors w-full text-center underline"

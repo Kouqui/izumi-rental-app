@@ -2,6 +2,7 @@ import { useState } from 'react';
 
 interface CalendarProps {
   availability: { [key: string]: boolean };
+  holidays: string[];
   checkIn: string;
   checkOut: string;
   onDateSelect: (date: string) => void;
@@ -13,7 +14,7 @@ const MONTHS_PT = [
 ];
 const DAYS_PT = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 
-export default function Calendar({ availability, checkIn, checkOut, onDateSelect }: CalendarProps) {
+export default function Calendar({ availability, holidays, checkIn, checkOut, onDateSelect }: CalendarProps) {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
@@ -29,10 +30,12 @@ export default function Calendar({ availability, checkIn, checkOut, onDateSelect
   const fmt = (y: number, m: number, d: number) => `${y}-${pad(m + 1)}-${pad(d)}`;
 
   const todayStr = fmt(today.getFullYear(), today.getMonth(), today.getDate());
+  const holidaySet = new Set(holidays);
 
   const getDayState = (dateStr: string) => {
     if (dateStr < todayStr) return 'past';
     if (availability[dateStr] === false) return 'unavailable';
+    if (holidaySet.has(dateStr)) return 'holiday';
     return 'available';
   };
 
@@ -95,8 +98,7 @@ export default function Calendar({ availability, checkIn, checkOut, onDateSelect
           const isToday = dateStr === todayStr;
           const disabled = state === 'past' || state === 'unavailable';
 
-          let cls =
-            'text-center py-2 rounded-lg text-sm font-medium transition-all duration-150 w-full ';
+          let cls = 'relative text-center py-2 rounded-lg text-sm font-medium transition-all duration-150 w-full ';
 
           if (state === 'past') {
             cls += 'text-gray-300 cursor-not-allowed';
@@ -106,6 +108,9 @@ export default function Calendar({ availability, checkIn, checkOut, onDateSelect
             cls += 'bg-izumi-pink text-white shadow-sm cursor-pointer';
           } else if (inRange) {
             cls += 'bg-izumi-pink/20 text-izumi-dark cursor-pointer hover:bg-izumi-pink/30';
+          } else if (state === 'holiday') {
+            cls += 'text-amber-600 hover:bg-amber-50 cursor-pointer font-semibold';
+            if (isToday) cls += ' ring-2 ring-izumi-pink';
           } else if (isToday) {
             cls += 'ring-2 ring-izumi-pink text-izumi-dark cursor-pointer hover:bg-izumi-cream';
           } else {
@@ -118,10 +123,13 @@ export default function Calendar({ availability, checkIn, checkOut, onDateSelect
               disabled={disabled}
               onClick={() => onDateSelect(dateStr)}
               className={cls}
-              aria-label={`${day} de ${MONTHS_PT[month]}`}
+              aria-label={`${day} de ${MONTHS_PT[month]}${state === 'holiday' ? ' (feriado)' : ''}`}
               aria-pressed={isCheckIn || isCheckOut}
             >
               {day}
+              {state === 'holiday' && !(isCheckIn || isCheckOut) && (
+                <span className="absolute bottom-0.5 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-amber-400 block" />
+              )}
             </button>
           );
         })}
@@ -140,6 +148,10 @@ export default function Calendar({ availability, checkIn, checkOut, onDateSelect
         <span className="flex items-center gap-1.5">
           <span className="w-3.5 h-3.5 rounded-sm bg-white ring-2 ring-izumi-pink inline-block" />
           Hoje
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="w-3.5 h-3.5 rounded-sm bg-amber-50 border border-amber-200 inline-block" />
+          Feriado
         </span>
         <span className="flex items-center gap-1.5">
           <span className="w-3.5 h-3.5 rounded-sm bg-white border border-red-200 inline-block" />
