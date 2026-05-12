@@ -167,14 +167,15 @@ export default function App() {
       <nav className="sticky top-0 z-50 bg-white bg-opacity-95 backdrop-blur-md border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
-            <div className="flex items-center">
-              <img src="/logo.jpg" alt="Chácara Izumi" className="h-12 w-auto" />
-            </div>
+            <span className="font-bold text-izumi-dark text-lg tracking-wide">Chácara Izumi</span>
             <div className="hidden md:flex space-x-8">
               <a href="#home" className="text-izumi-dark hover:text-izumi-pink transition-colors font-medium">
                 Início
               </a>
-              <a href="#about" className="text-izumi-dark hover:text-izumi-pink transition-colors font-medium">
+              <a href="#gallery" className="text-izumi-dark hover:text-izumi-pink transition-colors font-medium">
+                Galeria
+              </a>
+              <a href="#booking" className="text-izumi-dark hover:text-izumi-pink transition-colors font-medium">
                 Sobre
               </a>
               <a href="#contact" className="text-izumi-dark hover:text-izumi-pink transition-colors font-medium">
@@ -192,7 +193,7 @@ export default function App() {
       <section id="home" className="relative overflow-hidden">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24 md:py-32">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
-            <div className="space-y-8">
+            <div className="space-y-6">
               <div>
                 <h2 className="text-5xl md:text-6xl font-bold text-izumi-dark mb-4 leading-tight">
                   Bem-vindo à <span className="text-izumi-pink">Chácara Izumi</span>
@@ -200,24 +201,6 @@ export default function App() {
                 <p className="text-xl text-gray-600 leading-relaxed">
                   Experimente a combinação perfeita de luxo e natureza. Descubra seu escape ideal em nossa propriedade de aluguel de férias premium.
                 </p>
-              </div>
-              <div className="flex flex-col sm:flex-row gap-4">
-                <a href="#gallery" className="bg-izumi-pink text-white px-8 py-3 rounded-lg hover:bg-opacity-90 transition-all font-semibold shadow-lg hover:shadow-xl text-lg text-center">
-                  Explorar Agora
-                </a>
-                <a href="#booking" className="bg-white text-izumi-pink border-2 border-izumi-pink px-8 py-3 rounded-lg hover:bg-izumi-cream transition-all font-semibold shadow-md text-center">
-                  Saiba Mais
-                </a>
-              </div>
-              <div className="flex gap-8 pt-4">
-                <div>
-                  <p className="text-3xl font-bold text-izumi-pink">5★</p>
-                  <p className="text-sm text-gray-600">Avaliação de Hóspedes</p>
-                </div>
-                <div>
-                  <p className="text-3xl font-bold text-izumi-pink">500+</p>
-                  <p className="text-sm text-gray-600">Hóspedes Satisfeitos</p>
-                </div>
               </div>
             </div>
             <div className="relative h-96 md:h-full min-h-96 rounded-3xl overflow-hidden shadow-2xl">
@@ -252,7 +235,7 @@ export default function App() {
       <section id="booking" className="bg-white py-20 md:py-28">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
-            <h3 className="text-4xl md:text-5xl font-bold text-izumi-dark mb-4">Comece Sua Fuga</h3>
+            <h3 className="text-4xl md:text-5xl font-bold text-izumi-dark mb-4">Encontre seu Dia!</h3>
             <p className="text-xl text-gray-600">Encontre suas datas perfeitas e complete sua reserva</p>
           </div>
 
@@ -381,7 +364,7 @@ export default function App() {
       </section>
 
       {/* Footer */}
-      <footer className="bg-izumi-dark text-white py-12">
+      <footer id="contact" className="bg-izumi-dark text-white py-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
             <div>
