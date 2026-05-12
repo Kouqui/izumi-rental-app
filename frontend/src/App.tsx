@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import Calendar from './Calendar';
+import Carousel from './Carousel';
 
 interface PropertyData {
   id: string;
@@ -220,7 +221,7 @@ export default function App() {
               </div>
             </div>
             <div className="relative h-96 md:h-full min-h-96 rounded-3xl overflow-hidden shadow-2xl">
-              <img src="/pool.jpeg" alt="Piscina da Chácara Izumi" className="w-full h-full object-cover" />
+              <img src="/gallery/piscina-palmeiras.jpeg" alt="Piscina da Chácara Izumi" className="w-full h-full object-cover" />
               <div className="absolute inset-0 bg-gradient-to-t from-izumi-dark/30 to-transparent"></div>
             </div>
           </div>
@@ -236,30 +237,9 @@ export default function App() {
           </div>
 
           {loading ? (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {[1, 2, 3].map((i) => (
-                <div key={i} className="h-64 bg-gray-200 rounded-2xl animate-pulse"></div>
-              ))}
-            </div>
+            <div className="h-80 md:h-[520px] bg-gray-200 rounded-2xl animate-pulse" />
           ) : propertyData && propertyData.images && propertyData.images.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {propertyData.images.map((image, index) => (
-                <div
-                  key={index}
-                  className="group relative h-64 md:h-72 rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-300 cursor-pointer"
-                >
-                  <img
-                    src={image}
-                    alt={`Galeria ${index + 1}`}
-                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
-                    onError={(e) => {
-                      (e.currentTarget as HTMLImageElement).src = '/pool.jpeg';
-                    }}
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                </div>
-              ))}
-            </div>
+            <Carousel images={propertyData.images} />
           ) : (
             <div className="text-center py-12">
               <p className="text-gray-500">Galeria indisponível no momento</p>
