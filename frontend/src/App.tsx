@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import Calendar from './Calendar';
 import Carousel from './Carousel';
+import ContactModal from './ContactModal';
 
 interface Pricing {
   weekday: number;
@@ -65,8 +66,8 @@ export default function App() {
   const [checkIn, setCheckIn] = useState('');
   const [checkOut, setCheckOut] = useState('');
   const [availability, setAvailability] = useState<{ [key: string]: boolean }>({});
-  const [bookingMessage, setBookingMessage] = useState('');
-  const [bookingError, setBookingError] = useState('');
+  const [showModal, setShowModal] = useState(false);
+  const [rangeError, setRangeError] = useState('');
   const [totalPrice, setTotalPrice] = useState(0);
 
   useEffect(() => {
@@ -100,98 +101,41 @@ export default function App() {
   const handleClearDates = () => {
     setCheckIn('');
     setCheckOut('');
-    setBookingMessage('');
-    setBookingError('');
+    setRangeError('');
   };
 
   const handleDateSelect = (dateStr: string) => {
-    setBookingMessage('');
-    setBookingError('');
+    setRangeError('');
 
-    // Nenhuma data selecionada → define entrada
     if (!checkIn) {
       setCheckIn(dateStr);
       return;
     }
 
-    // Ambas selecionadas → reinicia com nova entrada
     if (checkOut) {
       setCheckIn(dateStr);
       setCheckOut('');
       return;
     }
 
-    // Clicou antes da entrada → nova entrada
     if (dateStr < checkIn) {
       setCheckIn(dateStr);
       return;
     }
 
-    // Mesma data ou depois → valida e define saída (permite dia único)
+    // Valida se o intervalo passa por alguma data indisponível
     let current = new Date(checkIn + 'T00:00:00');
     const end = new Date(dateStr + 'T00:00:00');
     while (current <= end) {
       const ds = current.toISOString().split('T')[0];
       if (availability[ds] === false) {
-        setBookingError('Este período contém datas indisponíveis. Escolha outro intervalo.');
+        setRangeError('Este período contém datas indisponíveis. Escolha outro intervalo.');
         return;
       }
       current.setDate(current.getDate() + 1);
     }
 
     setCheckOut(dateStr);
-  };
-
-  const handleCheckAvailability = async () => {
-    setBookingMessage('');
-    setBookingError('');
-
-    if (!checkIn || !checkOut) {
-      setBookingError('Por favor, selecione as datas de entrada e saída');
-      return;
-    }
-
-    const start = new Date(checkIn);
-    const end = new Date(checkOut);
-    
-    start.setHours(0, 0, 0, 0);
-    end.setHours(0, 0, 0, 0);
-
-    // Agora permite que start seja igual ao end (Day Use = 1 diária)
-    if (start > end) {
-      setBookingError('A data de saída não pode ser anterior à data de entrada');
-      return;
-    }
-
-    // Verificar disponibilidade para cada data (incluindo o dia de saída)
-    let currentDate = new Date(start);
-    let allAvailable = true;
-
-    // <= para verificar se o último dia também está livre
-    while (currentDate <= end) {
-      const dateStr = currentDate.toISOString().split('T')[0];
-      const isAvailable = availability[dateStr] !== false;
-
-      if (!isAvailable) {
-        allAvailable = false;
-        break;
-      }
-      currentDate.setDate(currentDate.getDate() + 1);
-    }
-
-    if (allAvailable) {
-      const daysDifference = Math.floor((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
-      const totalDiarias = daysDifference + 1;
-      
-      const textoDiaria = totalDiarias === 1 ? 'diária' : 'diárias';
-      
-      const total = calcPrice(checkIn, checkOut, propertyData!.pricing, propertyData!.holidays);
-      setBookingMessage(
-        `✅ Disponível! ${totalDiarias} ${textoDiaria} — Total: R$ ${total.toLocaleString('pt-BR')}`
-      );
-    } else {
-      setBookingError('❌ Infelizmente, algumas datas não estão disponíveis. Tente outras datas.');
-    }
   };
 
   return (
@@ -396,25 +340,19 @@ export default function App() {
                     </button>
                   )}
 
+                  {rangeError && (
+                    <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded">
+                      <p className="text-red-700 text-sm font-semibold">{rangeError}</p>
+                    </div>
+                  )}
+
                   <button
-                    onClick={handleCheckAvailability}
+                    onClick={() => setShowModal(true)}
                     disabled={!checkIn || !checkOut}
                     className="w-full bg-izumi-pink text-white py-4 rounded-lg hover:bg-opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-all font-bold text-lg shadow-lg hover:shadow-xl"
                   >
-                    Verificar Disponibilidade
+                    Tenho Interesse
                   </button>
-
-                  {bookingMessage && (
-                    <div className="bg-green-50 border-l-4 border-green-500 p-4 rounded">
-                      <p className="text-green-700 font-semibold">{bookingMessage}</p>
-                    </div>
-                  )}
-
-                  {bookingError && (
-                    <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded">
-                      <p className="text-red-700 font-semibold">{bookingError}</p>
-                    </div>
-                  )}
                 </div>
               </div>
             ) : (
@@ -425,6 +363,16 @@ export default function App() {
           </div>
         </div>
       </section>
+
+      {showModal && propertyData && (
+        <ContactModal
+          checkIn={checkIn}
+          checkOut={checkOut}
+          totalPrice={totalPrice}
+          formatDatePT={formatDatePT}
+          onClose={() => setShowModal(false)}
+        />
+      )}
 
       {/* Footer */}
       <footer id="contact" className="bg-izumi-dark text-white py-12">

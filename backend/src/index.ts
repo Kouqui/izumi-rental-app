@@ -1,5 +1,7 @@
+import 'dotenv/config';
 import express, { Express, Request, Response, NextFunction } from 'express';
 import cors from 'cors';
+import nodemailer from 'nodemailer';
 
 const app: Express = express();
 const port = process.env.PORT || 3000;
@@ -147,6 +149,86 @@ app.get('/api/availability/:date', (req: Request, res: Response) => {
     res.status(404).json({ error: 'Date not found in availability data' });
   } else {
     res.json({ date, available: isAvailable });
+  }
+});
+
+/**
+ * POST /api/contact
+ * Sends interest email to the property owner
+ */
+app.post('/api/contact', async (req: Request, res: Response) => {
+  const { name, phone, email, message, checkIn, checkOut, totalPrice } = req.body as {
+    name: string;
+    phone: string;
+    email: string;
+    message?: string;
+    checkIn: string;
+    checkOut: string;
+    totalPrice: number;
+  };
+
+  if (!name || !phone || !email || !checkIn || !checkOut) {
+    res.status(400).json({ error: 'Campos obrigatórios faltando' });
+    return;
+  }
+
+  const fmtDate = (d: string) => {
+    const [y, m, day] = d.split('-').map(Number);
+    const months = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+    return `${day} de ${months[m - 1]}, ${y}`;
+  };
+
+  const transporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+      user: process.env.GMAIL_USER,
+      pass: process.env.GMAIL_APP_PASSWORD,
+    },
+  });
+
+  const html = `
+    <div style="font-family:sans-serif;max-width:520px;margin:auto;border:1px solid #eee;border-radius:12px;overflow:hidden">
+      <div style="background:#C44E6D;padding:24px 32px">
+        <h2 style="color:#fff;margin:0;font-size:20px">Novo interesse de reserva</h2>
+        <p style="color:#f9d0db;margin:4px 0 0;font-size:14px">Chácara Izumi</p>
+      </div>
+      <div style="padding:28px 32px">
+        <table style="width:100%;border-collapse:collapse;margin-bottom:24px">
+          <tr style="background:#F4EFE6">
+            <td style="padding:12px 16px;font-size:13px;color:#666">Entrada</td>
+            <td style="padding:12px 16px;font-weight:600;color:#33292A">${fmtDate(checkIn)}</td>
+          </tr>
+          <tr>
+            <td style="padding:12px 16px;font-size:13px;color:#666">Saída</td>
+            <td style="padding:12px 16px;font-weight:600;color:#33292A">${fmtDate(checkOut)}</td>
+          </tr>
+          <tr style="background:#F4EFE6">
+            <td style="padding:12px 16px;font-size:13px;color:#666">Total estimado</td>
+            <td style="padding:12px 16px;font-weight:700;color:#C44E6D;font-size:16px">R$ ${Number(totalPrice).toLocaleString('pt-BR')}</td>
+          </tr>
+        </table>
+
+        <h3 style="margin:0 0 16px;font-size:15px;color:#33292A;border-bottom:1px solid #eee;padding-bottom:8px">Dados do interessado</h3>
+        <p style="margin:6px 0;font-size:14px"><strong>Nome:</strong> ${name}</p>
+        <p style="margin:6px 0;font-size:14px"><strong>Telefone:</strong> ${phone}</p>
+        <p style="margin:6px 0;font-size:14px"><strong>E-mail:</strong> ${email}</p>
+        ${message ? `<p style="margin:16px 0 0;font-size:14px"><strong>Mensagem:</strong><br>${message}</p>` : ''}
+      </div>
+    </div>
+  `;
+
+  try {
+    await transporter.sendMail({
+      from: `"Chácara Izumi" <${process.env.GMAIL_USER}>`,
+      to: process.env.GMAIL_USER,
+      replyTo: email,
+      subject: `Interesse de reserva: ${fmtDate(checkIn)} → ${fmtDate(checkOut)}`,
+      html,
+    });
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Erro ao enviar e-mail:', err);
+    res.status(500).json({ error: 'Falha ao enviar e-mail' });
   }
 });
 
